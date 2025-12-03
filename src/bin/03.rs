@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use cached::{Cached, UnboundCache, proc_macro::cached};
+use std::sync::LockResult;
 
 advent_of_code::solution!(3);
 
@@ -21,54 +22,50 @@ pub fn part_one(input: &str) -> Option<u64> {
     Some(ret)
 }
 
-fn part_two_wrapper(input: &[u64], t: u32, n: usize, memo: &mut HashMap<(usize, u32), u64>) -> u64 {
-    let key = (n - input.len(), t);
-
-    match memo.get(&key).copied() {
-        None => {
-            let to_insert = if input.len() == (t + 1) as _ {
-                (0..=t)
-                    .rev()
-                    .zip(input.iter().copied())
-                    .map(|(t, a)| a * 10_u64.pow(t))
-                    .sum()
-            } else {
-                input
-                    .first()
-                    .map(|first| {
-                        first * 10_u64.pow(t)
-                            + if t == 0 {
-                                0
-                            } else {
-                                part_two_wrapper(&input[1..], t - 1, n, memo)
-                            }
-                    })
-                    .into_iter()
-                    .chain(Some(part_two_wrapper(&input[1..], t, n, memo)))
-                    .max()
-                    .unwrap_or_default()
-            };
-
-            memo.insert(key, to_insert);
-            to_insert
-        }
-
-        Some(value) => value,
+#[cached(
+    ty = "UnboundCache<(usize, u32), u64>",
+    create = "{ UnboundCache::new() }",
+    convert = r#"{ (input.len(), t) }"#
+)]
+fn part_two_wrapper(input: &[u64], t: u32, n: usize) -> u64 {
+    if input.len() == (t + 1) as _ {
+        (0..=t)
+            .rev()
+            .zip(input.iter().copied())
+            .map(|(t, a)| a * 10_u64.pow(t))
+            .sum()
+    } else {
+        input
+            .first()
+            .map(|first| {
+                first * 10_u64.pow(t)
+                    + if t == 0 {
+                        0
+                    } else {
+                        part_two_wrapper(&input[1..], t - 1, n)
+                    }
+            })
+            .into_iter()
+            .chain(Some(part_two_wrapper(&input[1..], t, n)))
+            .max()
+            .unwrap_or_default()
     }
 }
 
 pub fn part_two(input: &str) -> Option<u64> {
     let ret = parse_input(input)
         .map(|input| {
-            let mut memo = HashMap::default();
-
             let digits = input
                 .chars()
                 .filter_map(|c| c.to_digit(10))
                 .map(u64::from)
                 .collect::<Vec<_>>();
 
-            part_two_wrapper(&digits, 11, digits.len(), &mut memo)
+            if let LockResult::Ok(mut locked) = PART_TWO_WRAPPER.lock() {
+                locked.cache_clear();
+            }
+
+            part_two_wrapper(&digits, 11, digits.len())
         })
         .sum();
 
