@@ -100,7 +100,9 @@ fn parse_input_two(input: &str) -> Vec<(Vec<u64>, Operator)> {
                 (0..n)
                     .map(|j| {
                         (0..m)
-                            .filter_map(|i| numbers.get(i).and_then(|row| row.get(n - j).copied()))
+                            .filter_map(|i| {
+                                numbers.get(i).and_then(|row| row.get(n - j - 1).copied())
+                            })
                             .collect::<String>()
                             .trim()
                             .parse::<u64>()
@@ -114,7 +116,7 @@ fn parse_input_two(input: &str) -> Vec<(Vec<u64>, Operator)> {
                     .collect::<Vec<_>>()
             });
 
-            numbers.map(|numbers| (operators, dbg!(numbers)))
+            numbers.map(|numbers| (operators, numbers))
         })
         .map(|(operators, numbers)| numbers.into_iter().zip(operators).collect())
         .unwrap_or_default()
@@ -142,8 +144,6 @@ pub fn part_two(input: &str) -> Option<u64> {
                 .reduce(|lhs, rhs| operator.call(lhs, rhs))
         })
         .sum();
-
-    println!("{:?}", parse_input_two(input));
 
     Some(ret)
 }
